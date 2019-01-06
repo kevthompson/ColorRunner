@@ -189,7 +189,7 @@ class Platform(pygame.sprite.Sprite):
         platforms.append(self)
 
 def loadLevel(levelnum):
-    src="{0}/maps/default.json".format(main_dir)
+    src="{0}/levels.json".format(main_dir)
     x = y = 0
     with open(src) as f:
         stages = json.load(f)
