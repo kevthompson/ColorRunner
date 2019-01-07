@@ -18,7 +18,7 @@ RED = pygame.Color(255, 0, 0)
 GREEN = pygame.Color(0, 255, 0)
 BLUE = pygame.Color(0, 0, 255)
 WHITE = pygame.Color(255, 255, 255)
-goal_color = pygame.Color(200, 200, 0)
+GOLD = pygame.Color(255, 223, 0)
 
 # SCREEN_MODES = pygame.FULLSCREEN | pygame.DOUBLEBUF
 # SCREEN_MODES = pygame.OPENGL | pygame.DOUBLEBUF
@@ -107,14 +107,14 @@ class Player():
         elif self.color == GREEN:
             self.color = RED
 
-    def move(self, dx, dy):
+    def move(self, dx, dy, platforms):
         # Move each axis separately. Note that this checks for collisions both times.
         if dx != 0:
-            self.move_single_axis(dx, 0)
+            self.move_single_axis(dx, 0, platforms)
         if dy != 0:
-            self.move_single_axis(0, dy)
+            self.move_single_axis(0, dy, platforms)
     
-    def move_single_axis(self, dx, dy):
+    def move_single_axis(self, dx, dy, platforms):
         # Move the rect
         self.rect.x += dx
         self.rect.y += dy
@@ -140,7 +140,7 @@ class Player():
                     self.rect.top = platform.rect.bottom
                     self.y_vel = 0
 
-    def checkDeath(self):
+    def isDead(self, platforms):
         for platform in platforms:
             if self.color == platform.color or platform.color == WHITE:
                 if self.rect.colliderect(platform.rect) \
@@ -148,15 +148,10 @@ class Player():
                 or self.rect.right == platform.rect.left and self.rect.top < platform.rect.bottom and self.rect.bottom > platform.rect.top \
                 or self.rect.top == platform.rect.bottom and self.rect.left < platform.rect.right and self.rect.right > platform.rect.left \
                 or self.rect.bottom == platform.rect.top and self.rect.left < platform.rect.right and self.rect.right > platform.rect.left :
+                    return platform
+        return None
 
-                    screen.fill((0, 0, 0))
-                    pygame.draw.rect(screen, WHITE, platform.rect)
-                    pygame.draw.rect(screen, WHITE, player.rect)
-                    pygame.display.flip()
-                    return True
-        return False
-
-    def update(self):
+    def update(self, platforms):
         self.x_vel += self.x_acc
         self.y_vel += self.y_acc
         self.x_pos += self.x_vel
@@ -177,84 +172,110 @@ class Player():
 
         self.x_vel = max(-MAX_VEL, min(MAX_VEL, self.x_vel))
         self.y_vel = max(JUMP_VEL, min(-JUMP_VEL, self.y_vel))
-        self.move(self.x_vel, self.y_vel)
+        self.move(self.x_vel, self.y_vel, platforms)
 
 
 
-class Platform(pygame.sprite.Sprite):
+class Platform:
     def __init__(self, pos, color=BLUE):
-        pygame.sprite.Sprite.__init__(self)
         self.color = color
         self.rect = pygame.Rect(pos[0], pos[1], TILE_WIDTH, TILE_WIDTH)
-        platforms.append(self)
 
-def loadLevel(levelnum):
-    src="{0}/levels.json".format(main_dir)
-    x = y = 0
-    with open(src) as f:
-        stages = json.load(f)
-    levelnum += 1
-    levelName = "level{0}".format(levelnum)
-    if levelName not in stages:
-        gameOver()
-    level_width = len(stages[levelName])
-    level_height = len(stages[levelName][0])
-    platforms = []
-    for row in stages[levelName]:
-        for col in row:
-            if col is " ":
-                pass
-            elif col is "s":
-                player_pos = (x, y)
-            elif col is "G":
-                goal_rect = pygame.Rect(x, y, TILE_WIDTH, TILE_WIDTH)
-            elif col is "r":
-                platforms.append(Platform((x, y), RED))
-            elif col is "g":
-                platforms.append(Platform((x, y), GREEN))
-            elif col is "b":
-                platforms.append(Platform((x, y), BLUE))
-            elif col is "w":
-                platforms.append(Platform((x, y), WHITE))
-            x += TILE_WIDTH
-        y += TILE_WIDTH
-        x = 0
-    return player_pos, goal_rect, level_height, level_width
+class Goal:
+    def __init__(self, pos):
+        self.color = GOLD
+        self.rect = pygame.Rect(pos[0], pos[1], TILE_WIDTH, TILE_WIDTH)
 
-def gameOver(platform=None):
-    screen.fill((0, 0, 0))
-    if platform:
-        pygame.draw.rect(screen, WHITE, platform.rect)
-    pygame.draw.rect(screen, WHITE, player.rect)
-    pygame.display.flip()
+class Game:
+    def __init__(self):
+        self.platforms = []
+        self.levelNum = 1
+        self.player = None
+        self.goal = None
+        self.screen = None
+        self.loadLevel()
+        
+    def loadLevel(self):
+        self.platforms = []
+        x = y = 0
+        src="{0}/levels.json".format(main_dir)
+        with open(src) as f:
+            stages = json.load(f)
+        levelName = "level{0}".format(self.levelNum)
+        if levelName not in stages:
+            self.gameOver()
+        level_width = len(stages[levelName])
+        level_height = len(stages[levelName][0])
+        self.platforms = []
+        for row in stages[levelName]:
+            for col in row:
+                if col is " ":
+                    pass
+                elif col is "s":
+                    self.player = Player((x, y))
+                elif col is "G":
+                    self.goal = Goal((x, y))
+                elif col is "r":
+                    self.platforms.append(Platform((x, y), RED))
+                elif col is "g":
+                    self.platforms.append(Platform((x, y), GREEN))
+                elif col is "b":
+                    self.platforms.append(Platform((x, y), BLUE))
+                elif col is "w":
+                    self.platforms.append(Platform((x, y), WHITE))
+                x += TILE_WIDTH
+            y += TILE_WIDTH
+            x = 0
+        self.screen = pygame.display.set_mode((level_height * TILE_WIDTH, level_width * TILE_WIDTH), SCREEN_MODES)
+        
+    def _draw(self):
+        self.screen.fill((0, 0, 0))
+        background = pygame.Surface(self.screen.get_size()).convert()
+        background.fill((150, 150, 150))
+        
+        for platform in self.platforms:
+            pygame.draw.rect(self.screen, platform.color, platform.rect)
+        pygame.draw.rect(self.screen, self.goal.color, self.goal.rect)
+        pygame.draw.rect(self.screen, self.player.color, self.player.rect)
+        pygame.display.flip()
 
-    print("Game Over")
-    raise SystemExit
+    def update(self):
+        self.player.update(self.platforms)
+        self._draw()
 
+        if self.player.rect.colliderect(self.goal): 
+            self.levelNum += 1
+            self.loadLevel()
+
+        platform = self.player.isDead(self.platforms)
+        if platform is not None:
+            self.screen.fill((0, 0, 0))
+            pygame.draw.rect(self.screen, WHITE, platform.rect)
+            pygame.draw.rect(self.screen, WHITE, self.player.rect)
+            pygame.display.flip()   
+            self.loadLevel()
+
+    def gameOver(self, platform=None):
+        self.screen.fill((0, 0, 0))
+        if platform:
+            pygame.draw.rect(self.screen, WHITE, platform.rect)
+        pygame.draw.rect(self.screen, WHITE, self.player.rect)
+        pygame.display.flip()
+
+        print("Game Over")
+        raise SystemExit
+        
 pygame.init()
 pygame.display.set_caption('ColorRunner')
 pygame.mouse.set_visible(0)
 
-running = True
-platforms = []
-levelnum = 0
-player_pos, goal_rect, level_height, level_width = loadLevel(levelnum)
-screen = pygame.display.set_mode((level_height * TILE_WIDTH, level_width * TILE_WIDTH), SCREEN_MODES)
-background = pygame.Surface(screen.get_size())
-background = background.convert()
-background.fill((150, 150, 150))
-pygame.display.flip()
-
-player = Player(player_pos)
-
-for platform in platforms:
-    pygame.draw.rect(screen, platform.color, platform.rect)
-pygame.draw.rect(screen, goal_color, goal_rect)
-pygame.draw.rect(screen, player.color, player.rect)
-
 clock = pygame.time.Clock()
+
+game = Game()
+
 shiftingLeft = 0
 shiftingRight = 0
+running = True
 while running:
     clock.tick(60)
 
@@ -266,42 +287,21 @@ while running:
     key = pygame.key.get_pressed()
 
     if key[pygame.K_w]:
-        player.jump()
+        game.player.jump()
     if key[pygame.K_a]:
-        player.move_left()
+        game.player.move_left()
     if key[pygame.K_d]:
-        player.move_right()
+        game.player.move_right()
     if key[pygame.K_q] and shiftingLeft < 0:
-        player.shiftColorLeft()
+        game.player.shiftColorLeft()
         shiftingLeft = 10
         shiftingRight = 0
     if key[pygame.K_e] and shiftingRight < 0:
-        player.shiftColorRight()
+        game.player.shiftColorRight()
         shiftingRight = 10
         shiftingLeft = 0
 
-    player.update()
     shiftingLeft -= 1
     shiftingRight -= 1
-
-    screen.fill((0, 0, 0))
-    for platform in platforms:
-        pygame.draw.rect(screen, platform.color, platform.rect)
-    pygame.draw.rect(screen, goal_color, goal_rect)
-    pygame.draw.rect(screen, player.color, player.rect)
-    pygame.display.flip()
-
-    if player.rect.colliderect(goal_rect):    
-        platforms = []
-        levelnum += 1
-        player_pos, goal_rect, level_height, level_width = loadLevel(levelnum)
-        player = Player(player_pos)
-        screen = pygame.display.set_mode((level_height * TILE_WIDTH, level_width * TILE_WIDTH), SCREEN_MODES)
-        background = pygame.Surface(screen.get_size())
-        background = background.convert()
-        background.fill((150, 150, 150))
-        pygame.display.flip()
-
-    elif player.checkDeath():
-        player = Player(player_pos)
-        pygame.display.flip()
+    
+    game.update()
