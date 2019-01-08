@@ -51,9 +51,7 @@ class Player():
     def __init__(self, pos):
         self.color = RED
         self.rect = pygame.Rect(pos[0], pos[1], TILE_WIDTH, TILE_WIDTH)
-        self.innerRect = pygame.Rect(pos[0] + 2, pos[1] - 2, TILE_WIDTH - 4, TILE_WIDTH - 4)
-        self.x_pos = pos[0]
-        self.y_pos = pos[1]
+        self.innerRect = pygame.Rect(pos[0] + 2, pos[1] + 2, TILE_WIDTH - 4, TILE_WIDTH - 4)
         self.x_vel = 0
         self.y_vel = 0
         self.x_acc = 0
@@ -61,7 +59,6 @@ class Player():
         self.grounded = False
         self.touchingWallLeft = False
         self.touchingWallRight = False
-        self.rect.topleft = (self.x_pos, self.y_pos)
 
     def move_right(self):
         self.x_acc = min(1, self.x_acc+1)
@@ -153,8 +150,6 @@ class Player():
     def update(self, platforms):
         self.x_vel += self.x_acc
         self.y_vel += self.y_acc
-        self.x_pos += self.x_vel
-        self.y_pos += self.y_vel
 
         self.grounded = False
         self.touchingWallLeft = False
@@ -184,85 +179,3 @@ class Goal:
     def __init__(self, pos):
         self.color = GOLD
         self.rect = pygame.Rect(pos[0], pos[1], TILE_WIDTH, TILE_WIDTH)
-
-class Game:
-    def __init__(self):
-        self.platforms = []
-        self.levelNum = 1
-        self.player = None
-        self.goal = None
-        self.screen = None
-        self.loadLevel()
-        
-    def loadLevel(self):
-        self.platforms = []
-        x = y = 0
-        src="{0}/levels.json".format(main_dir)
-        with open(src) as f:
-            stages = json.load(f)
-        levelName = "level{0}".format(self.levelNum)
-        if levelName not in stages:
-            self._gameOver()
-        level_width = len(stages[levelName])
-        level_height = len(stages[levelName][0])
-        self.platforms = []
-        for row in stages[levelName]:
-            for col in row:
-                if col is " ":
-                    pass
-                elif col is "s":
-                    self.player = Player((x, y))
-                elif col is "G":
-                    self.goal = Goal((x, y))
-                elif col is "r":
-                    self.platforms.append(Platform((x, y), RED))
-                elif col is "g":
-                    self.platforms.append(Platform((x, y), GREEN))
-                elif col is "b":
-                    self.platforms.append(Platform((x, y), BLUE))
-                elif col is "w":
-                    self.platforms.append(Platform((x, y), WHITE))
-                x += TILE_WIDTH
-            y += TILE_WIDTH
-            x = 0
-        self.screen = pygame.display.set_mode((level_height * TILE_WIDTH, level_width * TILE_WIDTH), SCREEN_MODES)
-        
-    def _draw(self):
-        self.screen.fill(BACKGROUND)
-        background = pygame.Surface(self.screen.get_size()).convert()
-        background.fill((150, 150, 150))
-        
-        for platform in self.platforms:
-            pygame.draw.rect(self.screen, platform.color, platform.rect)
-        pygame.draw.rect(self.screen, self.goal.color, self.goal.rect)
-        pygame.draw.rect(self.screen, BLACK, self.player.rect)
-        pygame.draw.rect(self.screen, self.player.color, self.player.innerRect)
-        pygame.display.flip()
-
-    def _gameOver(self, platform=None):
-        self.screen.fill(BACKGROUND)
-        if platform:
-            pygame.draw.rect(self.screen, WHITE, platform.rect)
-        pygame.draw.rect(self.screen, WHITE, self.player.rect)
-        pygame.display.flip()
-
-        print("Game Over")
-        raise SystemExit
-
-    def update(self):
-        self.player.update(self.platforms)
-        self._draw()
-
-        if self.player.rect.colliderect(self.goal): 
-            self.levelNum += 1
-            self.loadLevel()
-
-        platform = self.player.isDead(self.platforms)
-        if platform is not None:
-            self.screen.fill(BACKGROUND)
-            pygame.draw.rect(self.screen, WHITE, platform.rect)
-            pygame.draw.rect(self.screen, WHITE, self.player.rect)
-            pygame.display.flip()   
-            pygame.time.delay(1000)
-            self.loadLevel()
-     
