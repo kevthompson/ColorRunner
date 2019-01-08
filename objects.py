@@ -3,10 +3,6 @@ import json
 import pygame
 from pygame.locals import *
 
-
-if not pygame.font: print("Warning, fonts disabled")
-if not pygame.mixer: print("Warning, sound disabled")
-
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 data_dir = os.path.join(main_dir, 'data')
 
@@ -14,15 +10,14 @@ TILE_WIDTH = 16
 MAX_VEL = TILE_WIDTH / 4
 JUMP_VEL = -TILE_WIDTH / 2
 GRAVITY = 1
+BACKGROUND = (100, 100, 100)
 RED = pygame.Color(255, 0, 0)
 GREEN = pygame.Color(0, 255, 0)
 BLUE = pygame.Color(0, 0, 255)
-WHITE = pygame.Color(255, 255, 255)
 GOLD = pygame.Color(255, 223, 0)
-
-# SCREEN_MODES = pygame.FULLSCREEN | pygame.DOUBLEBUF
-# SCREEN_MODES = pygame.OPENGL | pygame.DOUBLEBUF
-SCREEN_MODES = 0
+BLACK = pygame.Color(0, 0, 0)
+WHITE = pygame.Color(255, 255, 255)
+SCREEN_MODES = 0 
 
 #functions to create our resources
 def load_image(name, colorkey=None):
@@ -56,6 +51,7 @@ class Player():
     def __init__(self, pos):
         self.color = RED
         self.rect = pygame.Rect(pos[0], pos[1], TILE_WIDTH, TILE_WIDTH)
+        self.innerRect = pygame.Rect(pos[0] + 2, pos[1] - 2, TILE_WIDTH - 4, TILE_WIDTH - 4)
         self.x_pos = pos[0]
         self.y_pos = pos[1]
         self.x_vel = 0
@@ -74,17 +70,19 @@ class Player():
         self.x_acc = max(-1, self.x_acc-1)
 
     def jump(self):
-        # jump
         if self.grounded:
             self.y_vel = JUMP_VEL
             self.grounded = False
-        # walljump
-        elif self.touchingWallLeft:
+    
+    def walljumpright(self):
+        if self.touchingWallLeft:
             self.y_vel = JUMP_VEL
             self.x_vel = -JUMP_VEL
             self.touchingWallLeft = False
             self.touchingWallRight = False
-        elif self.touchingWallRight:
+
+    def walljumpleft(self):
+        if self.touchingWallRight:
             self.y_vel = JUMP_VEL
             self.x_vel = JUMP_VEL
             self.touchingWallLeft = False
@@ -113,7 +111,8 @@ class Player():
             self.move_single_axis(dx, 0, platforms)
         if dy != 0:
             self.move_single_axis(0, dy, platforms)
-    
+        self.innerRect = pygame.Rect(self.rect.x + 2, self.rect.y + 2, TILE_WIDTH - 4, TILE_WIDTH - 4)
+
     def move_single_axis(self, dx, dy, platforms):
         # Move the rect
         self.rect.x += dx
@@ -203,7 +202,7 @@ class Game:
             stages = json.load(f)
         levelName = "level{0}".format(self.levelNum)
         if levelName not in stages:
-            self.gameOver()
+            self._gameOver()
         level_width = len(stages[levelName])
         level_height = len(stages[levelName][0])
         self.platforms = []
@@ -229,15 +228,26 @@ class Game:
         self.screen = pygame.display.set_mode((level_height * TILE_WIDTH, level_width * TILE_WIDTH), SCREEN_MODES)
         
     def _draw(self):
-        self.screen.fill((0, 0, 0))
+        self.screen.fill(BACKGROUND)
         background = pygame.Surface(self.screen.get_size()).convert()
         background.fill((150, 150, 150))
         
         for platform in self.platforms:
             pygame.draw.rect(self.screen, platform.color, platform.rect)
         pygame.draw.rect(self.screen, self.goal.color, self.goal.rect)
-        pygame.draw.rect(self.screen, self.player.color, self.player.rect)
+        pygame.draw.rect(self.screen, BLACK, self.player.rect)
+        pygame.draw.rect(self.screen, self.player.color, self.player.innerRect)
         pygame.display.flip()
+
+    def _gameOver(self, platform=None):
+        self.screen.fill(BACKGROUND)
+        if platform:
+            pygame.draw.rect(self.screen, WHITE, platform.rect)
+        pygame.draw.rect(self.screen, WHITE, self.player.rect)
+        pygame.display.flip()
+
+        print("Game Over")
+        raise SystemExit
 
     def update(self):
         self.player.update(self.platforms)
@@ -249,59 +259,10 @@ class Game:
 
         platform = self.player.isDead(self.platforms)
         if platform is not None:
-            self.screen.fill((0, 0, 0))
+            self.screen.fill(BACKGROUND)
             pygame.draw.rect(self.screen, WHITE, platform.rect)
             pygame.draw.rect(self.screen, WHITE, self.player.rect)
             pygame.display.flip()   
+            pygame.time.delay(1000)
             self.loadLevel()
-
-    def gameOver(self, platform=None):
-        self.screen.fill((0, 0, 0))
-        if platform:
-            pygame.draw.rect(self.screen, WHITE, platform.rect)
-        pygame.draw.rect(self.screen, WHITE, self.player.rect)
-        pygame.display.flip()
-
-        print("Game Over")
-        raise SystemExit
-        
-pygame.init()
-pygame.display.set_caption('ColorRunner')
-pygame.mouse.set_visible(0)
-
-clock = pygame.time.Clock()
-
-game = Game()
-
-shiftingLeft = 0
-shiftingRight = 0
-running = True
-while running:
-    clock.tick(60)
-
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            running = False
-        elif event.type == KEYDOWN and event.key == pygame.K_ESCAPE:
-            running = False
-    key = pygame.key.get_pressed()
-
-    if key[pygame.K_w]:
-        game.player.jump()
-    if key[pygame.K_a]:
-        game.player.move_left()
-    if key[pygame.K_d]:
-        game.player.move_right()
-    if key[pygame.K_q] and shiftingLeft < 0:
-        game.player.shiftColorLeft()
-        shiftingLeft = 10
-        shiftingRight = 0
-    if key[pygame.K_e] and shiftingRight < 0:
-        game.player.shiftColorRight()
-        shiftingRight = 10
-        shiftingLeft = 0
-
-    shiftingLeft -= 1
-    shiftingRight -= 1
-    
-    game.update()
+     
