@@ -1,8 +1,17 @@
-{   "level1": ["bbbbbbbbbbbbbbbbbbbbbbb",
+{ "base": ["bbbbbbbbbbbbbbbbbbbbbbbbbbb",
+           "b                         b",
+           "b                         b",
+           "b                         b",
+           "b                         b",
+           "bs                       Gb",
+           "bbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+
+  "level1": ["bbbbbbbbbbbbbbbbbbbbbbb",
                "b                     b",
                "b                     b",
                "b  s                 Gb",
                "bbbbbrrrrrrrrrrrrrrrrrb"],
+
     "level2": ["bgggggggggggggggggggggg",
                "b                     g",
                "b                     g",
@@ -11,6 +20,7 @@
                "bs   bbbbbbggg   rrrggg",
                "b  bbbbbbbbggg   rrrggg",
                "bbbbbbbbbbbgggwwwgggggg"],
+    
     "level3": ["bbbbb",
                "b   b",
                "b G b",
